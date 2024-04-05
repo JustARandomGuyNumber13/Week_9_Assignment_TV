@@ -78,7 +78,7 @@ CapsuleCollider:
     serializedVersion: 2
     m_Bits: 0
   m_LayerOverridePriority: 0
-  m_IsTrigger: 1
+  m_IsTrigger: 0
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 2
@@ -131,6 +131,9 @@ MonoBehaviour:
   - {fileID: 4908177882687038537}
   - {fileID: 3130762967852803456}
   anim: {fileID: 7533945152068885776}
+  target:
+    serializedVersion: 2
+    m_Bits: 0
 --- !u!1001 &8527696332627550577
 PrefabInstance:
   m_ObjectHideFlags: 0

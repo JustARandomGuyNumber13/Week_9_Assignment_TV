@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.AI;
 using UnityEngine.Events;
@@ -9,6 +10,8 @@ public class FishBullet : MonoBehaviour
     [SerializeField] private GameObject explo1, explo2;
     [SerializeField] private GameObject[] bodyParts;
     [SerializeField] private Animator anim;
+    [SerializeField] LayerMask target;
+
     private NavMeshAgent ai;
     private Rigidbody rb;
     private GameObject chasingTarget;
@@ -19,7 +22,7 @@ public class FishBullet : MonoBehaviour
     float knockback;
     float lifetime;
 
-    private void Start()
+    private void Awake()
     {
         ai = GetComponent<NavMeshAgent>();
         rb = GetComponent<Rigidbody>();
@@ -27,17 +30,33 @@ public class FishBullet : MonoBehaviour
     private void Update()
     {
         if (isChasing) SpiderModeChasing();
-    }
-    private void OnTriggerEnter(Collider other)                             // Explosion 1
-    {
-        var target = other.gameObject.GetComponent<Damageable>();
-        if (target != null)
+        else // If collide with Jeff, the target
         {
-            var direction = GetComponent<Rigidbody>().velocity;
-            direction.Normalize();
-            target.Hit(direction * knockback, damageAmount);
-            ActivateSpiderMode();
+            var target = DetectTarget();    // Knock back
+            if (target != null)
+            {
+                var direction = GetComponent<Rigidbody>().velocity;
+                direction.Normalize();
+                target.Hit(direction * knockback, damageAmount);
+                ActivateSpiderMode();
+            }
         }
+    }
+
+    /* Alternative for detecting collision since I'm already using layer to keep the bullet on the surface */
+    private Damageable DetectTarget()   
+    {
+        RaycastHit[] hits = Physics.SphereCastAll(transform.position, 0.5f, transform.forward, 0f);
+        foreach(RaycastHit hit in hits) 
+        {
+            if (hit.collider.gameObject.layer == LayerMask.NameToLayer("Enemy"))
+            {
+                Damageable other = hit.collider.GetComponent<Damageable>();
+                if (other != null)
+                    return other;
+            }
+        }
+        return null;
     }
     public void Initialize(float damage, float velocity, float life, float force)
     {
@@ -45,11 +64,22 @@ public class FishBullet : MonoBehaviour
         speed = velocity;
         lifetime = life;
         knockback = force;
-        GetComponent<CapsuleCollider>().isTrigger = false;
         rb.velocity = transform.forward * speed;
-        Invoke("ActivateSpiderMode", lifetime);                                         // Explosion 1
+        Invoke("ActivateSpiderMode", lifetime);                                         
     }
-    private void SpiderModeChasing()
+    private void ActivateSpiderMode()   // EXPLOSION 1 = > ACTIVATE SPIDER MODE
+    {
+        explo1.SetActive(true);
+        anim.SetBool("isActivate", true);
+        transform.eulerAngles = Vector3.zero;
+        rb.constraints = RigidbodyConstraints.FreezeRotation;
+
+        chasingTarget = GameObject.Find("Jeff_Target");
+        isChasing = true;
+        ai.enabled = true;
+        Invoke("Demolition", 5);
+    }
+    private void SpiderModeChasing()    // Chase player while in Spider mode
     {
         transform.LookAt(chasingTarget.transform);
         if (ai.isOnNavMesh)
@@ -57,24 +87,23 @@ public class FishBullet : MonoBehaviour
         else
             Demolition();
     }
-    private void ActivateSpiderMode()                   // Explosion 1 => Activate Spider Mode => Explosion 2
+    private void Demolition()   // EXPLOSION 2 = > DESTROY
     {
-        chasingTarget = GameObject.Find("Jeff_Target");
-        transform.eulerAngles = Vector3.zero;
-        rb.constraints = RigidbodyConstraints.FreezeRotation;
-        anim.SetBool("isActivate", true);
-        explo1.SetActive(true);
-        isChasing = true;
-        ai.enabled = true;
-        Invoke("Demolition", 7);
-    }
-    private void Demolition()                           // Explosion 2 => Destroy self
-    {
+        explo2.SetActive(true);
+        anim.SetBool("isDemo", true);
         rb.velocity = Vector3.zero;
         rb.useGravity = false;
-        anim.SetBool("isDemo", true);
-        explo2.SetActive(true);
-        foreach (GameObject part in bodyParts)
+
+        var target = DetectTarget();    // Knock back
+        if (target != null)
+        {
+            var direction = GetComponent<Rigidbody>().velocity;
+            direction.Normalize();
+            target.Hit(direction * knockback, 999);
+            ActivateSpiderMode();
+        }
+
+        foreach (GameObject part in bodyParts)  // Deactivate Mesh after exploded (The fish, not the explosion)
             part.GetComponent<SkinnedMeshRenderer>().enabled = false;
         Invoke("DestroySelf", 2);
     }

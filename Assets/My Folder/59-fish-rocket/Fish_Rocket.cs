@@ -10,7 +10,7 @@ public class Fish_Rocket : Gun
             return false;
 
         var b = Instantiate(bulletPrefab, gunBarrelEnd.transform.position, gunBarrelEnd.rotation);
-        b.GetComponent<FishBullet>().Initialize(1, 20, 2, 5);
+        b.GetComponent<FishBullet>().Initialize(10, 20, 2, 5);
 
         anim.SetTrigger("shoot");
         elapsed = 0;
