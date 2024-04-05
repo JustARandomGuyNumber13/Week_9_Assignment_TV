@@ -25,7 +25,6 @@ public class Gun : MonoBehaviour
     void Start()
     {
         ammo = maxAmmo;
-        print("Ammo: " + ammo + ", maxAmmo: " + maxAmmo); ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     }
 
     // Update is called once per frame
