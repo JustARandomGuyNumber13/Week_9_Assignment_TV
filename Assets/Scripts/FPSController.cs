@@ -1,11 +1,14 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 public class FPSController : MonoBehaviour
 {
     // references
     CharacterController controller;
+    PlayerInput input;
     [SerializeField] GameObject cam;
     [SerializeField] Transform gunHold;
     [SerializeField] Gun initialGun;
@@ -18,10 +21,11 @@ public class FPSController : MonoBehaviour
     [SerializeField] float jumpForce = 10;
 
     // private variables
-    Vector3 origin;
+    Vector3 origin, savePosition;
     Vector3 velocity;
+    Vector2 movement, looking;////////////////////////////////////////////////////////////////////////////////////////////////////////////
     bool grounded;
-    float xRotation;
+    float xRotation, mouseValue;////////////////////////////////////////////////////////////////////////////////////////////////////////////
     List<Gun> equippedGuns = new List<Gun>();
     int gunIndex = 0;
     Gun currentGun = null;
@@ -39,6 +43,7 @@ public class FPSController : MonoBehaviour
     void Start()
     {
         controller = GetComponent<CharacterController>();
+        input = GetComponent<PlayerInput>();
         Cursor.lockState = CursorLockMode.Locked;
 
         // start with a gun
@@ -46,6 +51,7 @@ public class FPSController : MonoBehaviour
             AddGun(initialGun);
 
         origin = transform.position;
+        savePosition = Vector3.zero;
     }
 
     // Update is called once per frame
@@ -60,6 +66,11 @@ public class FPSController : MonoBehaviour
         // "velocity" is for movement speed that we gain in addition to our movement (falling, knockback, etc.)
         Vector3 noVelocity = new Vector3(0, velocity.y, 0);
         velocity = Vector3.Lerp(velocity, noVelocity, 5 * Time.deltaTime);
+        if (!GetComponent<CharacterController>().enabled)
+        {
+            GetComponent<CharacterController>().enabled = true;
+        }
+        
     }
 
     void Movement()
@@ -71,14 +82,14 @@ public class FPSController : MonoBehaviour
             velocity.y = -1;// -0.5f;
         }
 
-        Vector2 movement = GetPlayerMovementVector();
+        //Vector2 movement = GetPlayerMovementVector();
         Vector3 move = transform.right * movement.x + transform.forward * movement.y;
         controller.Move(move * movementSpeed * (GetSprint() ? 2 : 1) * Time.deltaTime);
 
-        if (Input.GetButtonDown("Jump") && grounded)
+        /*if (Input.GetButtonDown("Jump") && grounded)
         {
             velocity.y += Mathf.Sqrt (jumpForce * -1 * gravity);
-        }
+        }*/
 
         velocity.y += gravity * Time.deltaTime;
 
@@ -87,7 +98,7 @@ public class FPSController : MonoBehaviour
 
     void Look()
     {
-        Vector2 looking = GetPlayerLook();
+        //Vector2 looking = GetPlayerLook();
         float lookX = looking.x * lookSensitivityX * Time.deltaTime;
         float lookY = looking.y * lookSensitivityY * Time.deltaTime;
 
@@ -130,6 +141,7 @@ public class FPSController : MonoBehaviour
             return;
 
         // pressed the fire button
+        /*
         if(GetPressFire())
         {
             currentGun?.AttemptFire();
@@ -140,6 +152,13 @@ public class FPSController : MonoBehaviour
         {
             if (currentGun.AttemptAutomaticFire())
                 currentGun?.AttemptFire();
+        }*/
+
+        if (mouseValue != 0)////////////////////////////////////////////////////////////////////////////////////////////////////////////
+        {
+            currentGun?.AttemptFire();////////////////////////////////////////////////////////////////////////////////////////////////////////////
+            if (!currentGun.AttemptAutomaticFire())////////////////////////////////////////////////////////////////////////////////////////////////////////////
+                mouseValue = 0;////////////////////////////////////////////////////////////////////////////////////////////////////////////
         }
 
         // pressed the alt fire button
@@ -231,12 +250,43 @@ public class FPSController : MonoBehaviour
             var knockbackAngle = (transform.position - collisionPoint).normalized;
             velocity = (20 * knockbackAngle);
         }
-
         if (hit.gameObject.GetComponent <KillZone>())
         {
             Respawn();
         }
     }
-
-
+    private void OnJump()////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    {
+        if(grounded)
+            velocity.y += Mathf.Sqrt(jumpForce * -1 * gravity);
+    }
+    private void OnMovement(InputValue value)////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    {
+        movement = value.Get<Vector2>();
+    }
+    private void OnRotate(InputValue value)////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    { 
+        looking = value.Get<Vector2>();
+    }
+    private void OnSavePosition()
+    {
+        savePosition = transform.position;
+        string jsonText = JsonUtility.ToJson(savePosition);
+        string path = "Downloads.UnityTest.json";
+        File.WriteAllText(path, jsonText);
+    }
+    private void OnLoadPosition()/////////////////////// Got into conflict with loading the position while having Character Controller /////////////////////////
+    {
+        if (savePosition != Vector3.zero)
+        {
+            string jsonText = File.ReadAllText("Downloads.UnityTest.json");
+            Vector3 savePosition = JsonUtility.FromJson<Vector3>(jsonText);
+            GetComponent<CharacterController>().enabled = false;
+            transform.position = savePosition; 
+        }
+    }
+    private void OnFire(InputValue value)////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    {
+        mouseValue = value.Get<float>();
+    }
 }

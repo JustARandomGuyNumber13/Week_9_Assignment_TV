@@ -14,11 +14,11 @@ public class Enemy : MonoBehaviour
     }
     private AnimationState animState;
     private NavMeshAgent agent;
-    private Vector3 orgPos, curPatrolPos;
+    private Vector3 orgPos, curDestination;
     [SerializeField]private Transform player;
     [SerializeField]private float patrolRange, sightRange, chaseRange, attackRange;
     [SerializeField]private float patrolDelay, chaseDelay, attackDelay; // ChaseDelay: Ammount of time stop after player exited "chaseRange" then return to patrolRange, ignore sightRange
-    private float patrolDelayCount, chaseDelayCount, attackDelayCount;
+    private float chaseDelayCount, attackDelayCount, knockBackTick;
     private bool isInSightRange, isInChaseRange, isInPatrolRange, isInAttackRange, isChangeState;
     
     void Start()
@@ -35,16 +35,21 @@ public class Enemy : MonoBehaviour
         isInSightRange = Vector3.Distance(player.position, transform.position) <= sightRange ? true : false;
         isInChaseRange = Vector3.Distance(transform.position, orgPos) <= chaseRange ? true : false;
         isInPatrolRange = Vector3.Distance(transform.position, orgPos) <= patrolRange ? true : false;
+
         attackDelayCount += Time.deltaTime;
+        knockBackTick += Time.deltaTime;
+        if(!Rigidbody.isKinematic && knockBackTick > 0.2f) Rigidbody.isKinematic = true;    // Prevent AI bug from knock back effect
+
         ChasePlayer();
         AttackPlayer();
-        agent.SetDestination(curPatrolPos);
+        agent.SetDestination(curDestination);
     }
     private void AttackPlayer()
     {
         if (attackDelayCount >= attackDelay && isInAttackRange)
         {
-            print("Attack Player");
+            //print("Attack Player");
+            animState = AnimationState.attack;
             attackDelayCount = 0;
         }
     }
@@ -55,17 +60,14 @@ public class Enemy : MonoBehaviour
             if (isInSightRange && isInChaseRange)   // Start to chase player
             {
                 animState = AnimationState.run;
-                //agent.SetDestination(player.position);
-                curPatrolPos = player.position;
+                curDestination = player.position;
             }
             else
             {
-                /* Need another condition when player exit SightRange while in PatrolRAnge*/
                 if (animState == AnimationState.run)  
                 {
                     animState = AnimationState.idle;
-                    //agent.SetDestination(transform.position);
-                    curPatrolPos = transform.position;
+                    curDestination = transform.position;
                     isChangeState = true;
                 }
             }
@@ -79,8 +81,7 @@ public class Enemy : MonoBehaviour
             else // Return to patrolRange
             {
                 animState = AnimationState.run;
-                //agent.SetDestination(orgPos);
-                curPatrolPos = orgPos;
+                curDestination = orgPos;
             }
 
             if (isInPatrolRange)    // Be able to chase again && Start Patrol again
@@ -93,11 +94,11 @@ public class Enemy : MonoBehaviour
     }
     private void ToNewPatrolLocation()
     {
-        if (!isInSightRange)
+        if (!isInSightRange && !isChangeState)
         {
             float randX = Random.Range(orgPos.x - patrolRange + 0.1f, orgPos.x + patrolRange - 0.1f);   // 0.1f is the off set in case patrol cordination is out of range
             float randz = Random.Range(orgPos.z - patrolRange + 0.1f, orgPos.z + patrolRange - 0.1f);
-            curPatrolPos = new Vector3(randX, 0, randz);
+            curDestination = new Vector3(randX, 0, randz);
             animState = AnimationState.walk;
             Invoke("ToNewPatrolLocation", patrolDelay);
         }
@@ -116,7 +117,9 @@ public class Enemy : MonoBehaviour
 
     public void ApplyKnockback(Vector3 knockback)
     {
+        Rigidbody.isKinematic = false;
         GetComponent<Rigidbody>().AddForce(knockback, ForceMode.Impulse);
+        knockBackTick = 0;
     }
     public void Respawn()
     {
